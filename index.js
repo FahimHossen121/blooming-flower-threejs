@@ -4,11 +4,14 @@ const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerH
 const renderer = new THREE.WebGLRenderer({ 
     antialias: true, 
     alpha: true,
-    powerPreference: "high-performance"
+    powerPreference: "high-performance",
+    stencil: false,
+    depth: true
 });
 
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
 document.getElementById('container').appendChild(renderer.domElement);
 
 // Add lighting
@@ -30,13 +33,25 @@ let flower = null;
 
 // Load GLB model with progress tracking
 const loader = new THREE.GLTFLoader();
+
+// Set up Draco loader for compressed models
+const dracoLoader = new THREE.DRACOLoader();
+dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+dracoLoader.setDecoderConfig({ type: 'js' });
+loader.setDRACOLoader(dracoLoader);
+
 const loadingScreen = document.getElementById('loading-screen');
 const progressFill = document.getElementById('progress-fill');
 const progressText = document.getElementById('progress-text');
 
+// Start loading immediately
+const loadStartTime = performance.now();
+
 loader.load(
     'assets/flower.glb',
     function (gltf) {
+        const loadTime = ((performance.now() - loadStartTime) / 1000).toFixed(2);
+        console.log(`Model loaded in ${loadTime}s`);
         flower = gltf.scene;
         
         // Center the model
@@ -62,6 +77,16 @@ loader.load(
             console.log('Flower loaded with animation!');
         }
         
+        // Optimize materials
+        flower.traverse((child) => {
+            if (child.isMesh) {
+                child.frustumCulled = true;
+                if (child.material) {
+                    child.material.envMapIntensity = 1;
+                }
+            }
+        });
+        
         // Hide loading screen
         setTimeout(() => {
             loadingScreen.classList.add('fade-out');
@@ -71,15 +96,28 @@ loader.load(
         }, 300);
     },
     function (xhr) {
-        const percentComplete = (xhr.loaded / xhr.total * 100).toFixed(0);
-        progressFill.style.width = percentComplete + '%';
-        progressText.textContent = percentComplete + '%';
-        console.log(percentComplete + '% loaded');
+        if (xhr.lengthComputable) {
+            const percentComplete = Math.min((xhr.loaded / xhr.total * 100), 99).toFixed(0);
+            progressFill.style.width = percentComplete + '%';
+            progressText.textContent = percentComplete + '%';
+        } else {
+            // If length not computable, show indeterminate progress
+            const loaded = (xhr.loaded / 1024 / 1024).toFixed(2);
+            progressText.textContent = `${loaded} MB`;
+        }
     },
     function (error) {
         console.error('Error loading model:', error);
+        progressText.textContent = 'Error loading model';
+        progressFill.style.background = '#ff4444';
     }
 );
+
+// Preconnect to CDN for faster loading
+const preconnectLink = document.createElement('link');
+preconnectLink.rel = 'preconnect';
+preconnectLink.href = 'https://www.gstatic.com';
+document.head.appendChild(preconnectLink);
 
 // Scroll control
 let scrollPercent = 0;
