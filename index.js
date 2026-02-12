@@ -1,9 +1,14 @@
 // Scene setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+const renderer = new THREE.WebGLRenderer({ 
+    antialias: true, 
+    alpha: true,
+    powerPreference: "high-performance"
+});
 
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 document.getElementById('container').appendChild(renderer.domElement);
 
 // Add lighting
@@ -23,8 +28,12 @@ let mixer = null;
 let flowerAnimation = null;
 let flower = null;
 
-// Load GLB model
+// Load GLB model with progress tracking
 const loader = new THREE.GLTFLoader();
+const loadingScreen = document.getElementById('loading-screen');
+const progressFill = document.getElementById('progress-fill');
+const progressText = document.getElementById('progress-text');
+
 loader.load(
     'assets/flower.glb',
     function (gltf) {
@@ -52,9 +61,20 @@ loader.load(
             
             console.log('Flower loaded with animation!');
         }
+        
+        // Hide loading screen
+        setTimeout(() => {
+            loadingScreen.classList.add('fade-out');
+            setTimeout(() => {
+                loadingScreen.style.display = 'none';
+            }, 500);
+        }, 300);
     },
     function (xhr) {
-        console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+        const percentComplete = (xhr.loaded / xhr.total * 100).toFixed(0);
+        progressFill.style.width = percentComplete + '%';
+        progressText.textContent = percentComplete + '%';
+        console.log(percentComplete + '% loaded');
     },
     function (error) {
         console.error('Error loading model:', error);
