@@ -1,26 +1,47 @@
 // Scene setup
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+// Detect mobile device
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+
+// Optimize renderer for mobile
 const renderer = new THREE.WebGLRenderer({ 
-    antialias: true, 
+    antialias: !isMobile, // Disable antialiasing on mobile for better performance
     alpha: true,
-    powerPreference: "high-performance",
+    powerPreference: isMobile ? "default" : "high-performance",
     stencil: false,
     depth: true
 });
 
 renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+// Lower pixel ratio on mobile to improve performance
+renderer.setPixelRatio(isMobile ? 1 : Math.min(window.devicePixelRatio, 2));
 renderer.outputEncoding = THREE.sRGBEncoding;
+
+// Reduce shadow quality on mobile
+if (isMobile) {
+    renderer.shadowMap.enabled = false;
+}
 document.getElementById('container').appendChild(renderer.domElement);
 
-// Add lighting
-const light = new THREE.DirectionalLight(0xffffff, 1);
-light.position.set(5, 5, 5);
-scene.add(light);
+// Simplified lighting for mobile
+if (isMobile) {
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+    scene.add(ambientLight);
+    
+    const frontLight = new THREE.DirectionalLight(0xffffff, 0.5);
+    frontLight.position.set(0, 5, 5);
+    scene.add(frontLight);
+} else {
+    // Add lighting
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(5, 5, 5);
+    scene.add(light);
 
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-scene.add(ambientLight);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+}
 
 // Position camera - adjusted for better flower view
 camera.position.set(1.8, 1.2, 1.5);
@@ -34,11 +55,13 @@ let flower = null;
 // Load GLB model with progress tracking
 const loader = new THREE.GLTFLoader();
 
-// Set up Draco loader for compressed models
-const dracoLoader = new THREE.DRACOLoader();
-dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
-dracoLoader.setDecoderConfig({ type: 'js' });
-loader.setDRACOLoader(dracoLoader);
+// Set up Draco loader for compressed models (skip on very slow connections)
+if (!isMobile || navigator.connection?.effectiveType !== '2g') {
+    const dracoLoader = new THREE.DRACOLoader();
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/v1/decoders/');
+    dracoLoader.setDecoderConfig({ type: 'js' });
+    loader.setDRACOLoader(dracoLoader);
+}
 
 const loadingScreen = document.getElementById('loading-screen');
 const progressFill = document.getElementById('progress-fill');
@@ -83,6 +106,12 @@ loader.load(
                 child.frustumCulled = true;
                 if (child.material) {
                     child.material.envMapIntensity = 1;
+                    // Further mobile optimizations
+                    if (isMobile) {
+                        child.material.flatShading = true;
+                        child.castShadow = false;
+                        child.receiveShadow = false;
+                    }
                 }
             }
         });
@@ -135,8 +164,21 @@ window.addEventListener('scroll', () => {
 });
 
 // Animation loop
-function animate() {
+let lastTime = 0;
+const targetFPS = isMobile ? 30 : 60; // Lower FPS on mobile
+const frameInterval = 1000 / targetFPS;
+
+function animate(currentTime) {
     requestAnimationFrame(animate);
+    
+    const deltaTime = currentTime - lastTime;
+    
+    // Throttle frame rate on mobile
+    if (deltaTime < frameInterval && isMobile) {
+        return;
+    }
+    
+    lastTime = currentTime;
     
     // Update mixer to apply animation changes
     if (mixer) {
