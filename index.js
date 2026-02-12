@@ -104,15 +104,18 @@ loader.load(
         flower.traverse((child) => {
             if (child.isMesh) {
                 child.frustumCulled = true;
-                if (child.material) {
-                    child.material.envMapIntensity = 1;
-                    // Further mobile optimizations
+                // Handle single or array of materials
+                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                materials.forEach((mat) => {
+                    mat.side = THREE.FrontSide; // Hide inner faces of petals
+                    mat.needsUpdate = true;
+                    mat.envMapIntensity = 1;
                     if (isMobile) {
-                        child.material.flatShading = true;
+                        mat.flatShading = true;
                         child.castShadow = false;
                         child.receiveShadow = false;
                     }
-                }
+                });
             }
         });
         
