@@ -1,0 +1,32 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background: linear-gradient(to bottom, #1a1a2e, #16213e);
+    font-family: Arial, sans-serif;
+}
+
+#container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: -1;
+}
+
+canvas {
+    display: block;
+}
+
+#scroll-content {
+    position: relative;
+    width: 100%;
+}
+
+.spacer {
+    height: 150vh;
+}
